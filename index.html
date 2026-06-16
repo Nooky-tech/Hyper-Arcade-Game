@@ -24,6 +24,7 @@ canvas{display:block;position:fixed;top:48px;left:0}
 .lb-name{flex:1;text-align:left;margin-left:10px}
 .lb-score{font-family:'Orbitron',monospace;color:#00f5ff}
 #leaderboardList,#topScores{width:100%;max-width:400px}
+.lb-loading{color:#555;font-family:'Orbitron',monospace;font-size:12px;margin-top:20px}
 </style>
 </head>
 <body>
@@ -54,10 +55,38 @@ canvas{display:block;position:fixed;top:48px;left:0}
 </div>
 <div id="leaderboardScreen" class="screen">
   <div class="logo">🏆 BESTENLISTE</div>
-  <div id="leaderboardList"></div>
+  <p style="color:#555;font-size:11px;margin-top:-8px;margin-bottom:4px">🌍 GLOBAL</p>
+  <div id="leaderboardList"><p class="lb-loading">Lade Scores...</p></div>
   <button class="btn-secondary" onclick="showStart()">← Zurück</button>
 </div>
 <script>
+const API_URL = 'https://yn39pq26pi.execute-api.eu-central-1.amazonaws.com';
+
+function getPlayerId() {
+  let id = localStorage.getItem('hyperArcadePlayerId');
+  if (!id) { id = 'p-' + Math.random().toString(36).slice(2) + Date.now().toString(36); localStorage.setItem('hyperArcadePlayerId', id); }
+  return id;
+}
+
+async function fetchScores() {
+  try {
+    const r = await fetch(API_URL + '/scores');
+    if (!r.ok) throw new Error();
+    return await r.json();
+  } catch { return []; }
+}
+
+async function postScore(score) {
+  const playerName = localStorage.getItem('playerName') || 'Spieler';
+  try {
+    await fetch(API_URL + '/scores', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ playerId: getPlayerId(), playerName, score })
+    });
+  } catch (e) { console.warn('Score konnte nicht gespeichert werden', e); }
+}
+
 const canvas=document.getElementById('gameCanvas');
 const ctx=canvas.getContext('2d');
 function resize(){canvas.width=window.innerWidth;canvas.height=window.innerHeight-48;}
@@ -140,25 +169,33 @@ function startGame(){
   resize();
   player.x=canvas.width/2;player.y=canvas.height/2;player.trail=[];player.invincible=0;
 }
-function gameOver(){
-  state.running=false;saveScore(state.score);
+async function gameOver(){
+  state.running=false;
   document.getElementById('finalScore').textContent=state.score;
-  const scores=getScores(),rank=scores.findIndex(s=>s.score===state.score)+1;
-  document.getElementById('rankMessage').textContent=rank===1?'🥇 Neuer Rekord!':rank<=3?'🏆 Platz '+rank+' in der Bestenliste!':'Du bist auf Platz '+rank+'!';
+  document.getElementById('rankMessage').textContent='Score wird gespeichert...';
   showScreen('gameOverScreen');
+  await postScore(state.score);
+  const scores = await fetchScores();
+  const rank = scores.findIndex(s => s.score <= state.score) + 1 || scores.length + 1;
+  document.getElementById('rankMessage').textContent=rank===1?'🥇 Neuer Weltrekord!':rank<=3?'🏆 Platz '+rank+' weltweit!':'Du bist auf Platz '+rank+' weltweit!';
 }
-function showLeaderboard(){
-  const scores=getScores(),m=['🥇','🥈','🥉'],cl=['gold','silver','bronze'];
-  document.getElementById('leaderboardList').innerHTML=scores.length===0?'<p style="color:#555;margin-top:20px">Noch keine Scores!</p>':scores.map((s,i)=>'<div class="lb-entry '+(cl[i]||'')+'"><span class="lb-rank">'+(m[i]||(i+1)+'.')+'</span><span class="lb-name">'+s.name+'</span><span class="lb-score">'+s.score+'</span></div>').join('');
+function renderScores(scores, elementId) {
+  const m=['🥇','🥈','🥉'],cl=['gold','silver','bronze'];
+  document.getElementById(elementId).innerHTML = scores.length===0
+    ? '<p style="color:#555;margin-top:20px">Noch keine Scores!</p>'
+    : scores.map((s,i)=>'<div class="lb-entry '+(cl[i]||'')+'"><span class="lb-rank">'+(m[i]||(i+1)+'.')+'</span><span class="lb-name">'+s.playerName+'</span><span class="lb-score">'+s.score+'</span></div>').join('');
+}
+async function showLeaderboard(){
   showScreen('leaderboardScreen');
+  document.getElementById('leaderboardList').innerHTML='<p class="lb-loading">Lade globale Bestenliste...</p>';
+  const scores = await fetchScores();
+  renderScores(scores, 'leaderboardList');
 }
-function loadTopScores(){
-  const scores=getScores().slice(0,3);
-  document.getElementById('topScores').innerHTML=scores.map((s,i)=>'<div class="lb-entry '+([ 'gold','silver','bronze'][i]||'')+'"><span class="lb-rank">'+['🥇','🥈','🥉'][i]+'</span><span class="lb-name">'+s.name+'</span><span class="lb-score">'+s.score+'</span></div>').join('');
+async function loadTopScores(){
+  const scores = await fetchScores();
+  renderScores(scores.slice(0,3), 'topScores');
 }
-function getScores(){return JSON.parse(localStorage.getItem('hyperArcadeScores')||'[]');}
-function saveScore(score){const name=localStorage.getItem('playerName')||'Spieler';const scores=getScores();scores.push({name,score});scores.sort((a,b)=>b.score-a.score);localStorage.setItem('hyperArcadeScores',JSON.stringify(scores.slice(0,20)));}
-function shareScore(){const text='🎮 '+( localStorage.getItem('playerName')||'Spieler')+' hat '+state.score+' Punkte in Hyper Arcade! Kannst du das toppen? 👾';if(navigator.share)navigator.share({title:'Hyper Arcade',text});else{navigator.clipboard.writeText(text);alert('Score kopiert!');}}
+function shareScore(){const text='🎮 '+(localStorage.getItem('playerName')||'Spieler')+' hat '+state.score+' Punkte in Hyper Arcade! Kannst du das toppen? 👾';if(navigator.share)navigator.share({title:'Hyper Arcade',text});else{navigator.clipboard.writeText(text);alert('Score kopiert!');}}
 const sn=localStorage.getItem('playerName');if(sn)document.getElementById('playerName').value=sn;
 loadTopScores();loop();
 </script>
