@@ -1,33 +1,166 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
-  <meta charset="UTF-8">
-  <title>Hyper Arcade</title>
-  <link rel="stylesheet" href="style.css">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Hyper Arcade</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&display=swap');
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0a0a0f;color:#e8e8ff;font-family:sans-serif;overflow:hidden}
+.screen{display:none;flex-direction:column;align-items:center;justify-content:center;width:100vw;height:100vh;gap:16px;text-align:center}
+.screen.active{display:flex}
+.logo{font-family:'Orbitron',monospace;font-size:clamp(28px,6vw,52px);font-weight:900;color:#00f5ff;text-shadow:0 0 20px #00f5ff,0 0 40px #00f5ff;letter-spacing:2px;margin-bottom:8px}
+.btn-primary{background:#00f5ff;color:#0a0a0f;border:none;padding:16px 48px;font-family:'Orbitron',monospace;font-size:18px;font-weight:700;border-radius:4px;cursor:pointer;letter-spacing:2px;box-shadow:0 0 20px #00f5ff;width:100%;max-width:320px}
+.btn-secondary{background:transparent;color:#00f5ff;border:1px solid #00f5ff;padding:12px 32px;font-family:'Orbitron',monospace;font-size:14px;border-radius:4px;cursor:pointer;width:100%;max-width:320px}
+.name-input input{background:#12121e;border:1px solid #333;border-radius:4px;padding:12px 20px;color:#e8e8ff;font-size:16px;text-align:center;width:100%;max-width:320px;outline:none}
+#gameScreen{position:relative;padding:0}
+.hud{position:fixed;top:0;left:0;right:0;display:flex;justify-content:space-between;align-items:center;padding:12px 20px;background:rgba(0,0,0,0.8);font-family:'Orbitron',monospace;font-size:14px;z-index:10;color:#00f5ff}
+canvas{display:block;position:fixed;top:48px;left:0}
+.final-score{font-family:'Orbitron',monospace;font-size:32px;color:#ffd700;text-shadow:0 0 20px #ffd700}
+.lb-entry{display:flex;justify-content:space-between;align-items:center;padding:10px 16px;margin:6px 0;background:#12121e;border-radius:4px;border-left:3px solid #00f5ff;width:100%;max-width:400px}
+.lb-entry.gold{border-color:#ffd700}.lb-entry.silver{border-color:#c0c0c0}.lb-entry.bronze{border-color:#cd7f32}
+.lb-rank{font-family:'Orbitron',monospace;font-size:12px;color:#666;width:30px}
+.lb-name{flex:1;text-align:left;margin-left:10px}
+.lb-score{font-family:'Orbitron',monospace;color:#00f5ff}
+#leaderboardList,#topScores{width:100%;max-width:400px}
+</style>
 </head>
 <body>
-  <div id="startScreen" class="screen active">
-    <div class="logo">HYPER ARCADE</div>
-    <button class="btn-primary" onclick="startGame()">SPIELEN</button>
-    <button class="btn-secondary" onclick="showLeaderboard()">Bestenliste</button>
-    <div class="name-input"><input type="text" id="playerName" placeholder="Dein Name..." maxlength="12"></div>
+<div id="startScreen" class="screen active">
+  <div class="logo">⚡ HYPER ARCADE</div>
+  <p style="color:#888;margin-bottom:8px">Wie weit kommst du?</p>
+  <div id="topScores"></div>
+  <button class="btn-primary" onclick="startGame()">SPIELEN</button>
+  <button class="btn-secondary" onclick="showLeaderboard()">🏆 Bestenliste</button>
+  <div class="name-input"><input type="text" id="playerName" placeholder="Dein Name..." maxlength="12"></div>
+</div>
+<div id="gameScreen" class="screen">
+  <div class="hud">
+    <span id="scoreDisplay">Score: 0</span>
+    <span id="livesDisplay">❤️❤️❤️</span>
+    <span id="levelDisplay">Level 1</span>
   </div>
-  <div id="gameScreen" class="screen">
-    <div class="hud"><span id="scoreDisplay">Score: 0</span><span id="livesDisplay">3 Leben</span><span id="levelDisplay">Level 1</span></div>
-    <canvas id="gameCanvas"></canvas>
-  </div>
-  <div id="gameOverScreen" class="screen">
-    <div class="logo">GAME OVER</div>
-    <p class="final-score">Score: <span id="finalScore">0</span></p>
-    <button class="btn-primary" onclick="startGame()">NOCHMAL</button>
-    <button class="btn-secondary" onclick="shareScore()">Teilen</button>
-    <button class="btn-secondary" onclick="showStart()">Zurueck</button>
-  </div>
-  <div id="leaderboardScreen" class="screen">
-    <div class="logo">BESTENLISTE</div>
-    <div id="leaderboardList"></div>
-    <button class="btn-secondary" onclick="showStart()">Zurueck</button>
-  </div>
-  <script src="game.js"></script>
+  <canvas id="gameCanvas"></canvas>
+</div>
+<div id="gameOverScreen" class="screen">
+  <div class="logo">💥 GAME OVER</div>
+  <p class="final-score">Score: <span id="finalScore">0</span></p>
+  <p id="rankMessage" style="color:#ff00ff;font-size:16px;margin-bottom:8px"></p>
+  <button class="btn-primary" onclick="startGame()">NOCHMAL</button>
+  <button class="btn-secondary" onclick="showLeaderboard()">🏆 Bestenliste</button>
+  <button class="btn-secondary" onclick="shareScore()">📤 Teilen</button>
+  <button class="btn-secondary" onclick="showStart()">← Zurück</button>
+</div>
+<div id="leaderboardScreen" class="screen">
+  <div class="logo">🏆 BESTENLISTE</div>
+  <div id="leaderboardList"></div>
+  <button class="btn-secondary" onclick="showStart()">← Zurück</button>
+</div>
+<script>
+const canvas=document.getElementById('gameCanvas');
+const ctx=canvas.getContext('2d');
+function resize(){canvas.width=window.innerWidth;canvas.height=window.innerHeight-48;}
+resize();
+window.addEventListener('resize',resize);
+let state={score:0,lives:3,level:1,running:false,frame:0};
+let player={x:0,y:0,speed:6,trail:[],invincible:0};
+let keys={},touch={active:false,x:0,y:0};
+let obstacles=[],particles=[],collectibles=[];
+document.addEventListener('keydown',e=>keys[e.key]=true);
+document.addEventListener('keyup',e=>keys[e.key]=false);
+canvas.addEventListener('touchstart',e=>{e.preventDefault();touch.active=true;touch.x=e.touches[0].clientX;touch.y=e.touches[0].clientY-48;},{passive:false});
+canvas.addEventListener('touchmove',e=>{e.preventDefault();touch.x=e.touches[0].clientX;touch.y=e.touches[0].clientY-48;},{passive:false});
+canvas.addEventListener('touchend',()=>touch.active=false);
+function spawnObs(){
+  const t=['h','v','d','x'][Math.floor(Math.random()*(state.level<3?2:4))];
+  const sz=20+Math.random()*20,sp=(2+state.level*0.5)*(0.8+Math.random()*0.4);
+  let o={type:t,sz,color:'#ff4444',active:true,vx:0,vy:0,x:0,y:0};
+  if(t==='h'){o.x=canvas.width+sz;o.y=Math.random()*canvas.height;o.vx=-sp;}
+  else if(t==='v'){o.x=Math.random()*canvas.width;o.y=-sz;o.vy=sp;}
+  else if(t==='d'){o.x=canvas.width+sz;o.y=Math.random()*canvas.height;o.vx=-sp;o.vy=(Math.random()-.5)*sp;}
+  else{o.x=canvas.width+sz;o.y=Math.random()*canvas.height;o.vx=-sp*.6;o.color='#ff00ff';}
+  obstacles.push(o);
+}
+function spawnCoin(){collectibles.push({x:canvas.width+20,y:50+Math.random()*(canvas.height-100),vx:-(2+state.level*.3),type:Math.random()<.2?'life':'coin',angle:0,active:true});}
+function burst(x,y,col,n=12){for(let i=0;i<n;i++){const a=(Math.PI*2/n)*i,sp=2+Math.random()*4;particles.push({x,y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,life:1,col,sz:3+Math.random()*4});}}
+function update(){
+  if(!state.running)return;
+  state.frame++;state.score++;
+  if(state.score%500===0)state.level=Math.min(10,state.level+1);
+  const sp=player.speed+state.level*.3;
+  if(touch.active){const dx=touch.x-player.x,dy=touch.y-player.y,d=Math.sqrt(dx*dx+dy*dy);if(d>5){player.x+=dx/d*sp;player.y+=dy/d*sp;}}
+  else{if(keys['ArrowLeft']||keys['a']||keys['A'])player.x-=sp;if(keys['ArrowRight']||keys['d']||keys['D'])player.x+=sp;if(keys['ArrowUp']||keys['w']||keys['W'])player.y-=sp;if(keys['ArrowDown']||keys['s']||keys['S'])player.y+=sp;}
+  player.x=Math.max(20,Math.min(canvas.width-20,player.x));
+  player.y=Math.max(20,Math.min(canvas.height-20,player.y));
+  player.trail.push({x:player.x,y:player.y});if(player.trail.length>12)player.trail.shift();
+  if(player.invincible>0)player.invincible--;
+  const sr=Math.max(20,60-state.level*4);
+  if(state.frame%sr===0)spawnObs();if(state.frame%90===0)spawnCoin();
+  obstacles.forEach(o=>{
+    if(o.type==='x'){const dx=player.x-o.x,dy=player.y-o.y,d=Math.sqrt(dx*dx+dy*dy);o.vy+=(dy/d)*.15;o.vy=Math.max(-3,Math.min(3,o.vy));}
+    o.x+=o.vx;o.y+=o.vy;
+    if(o.x<-100||o.x>canvas.width+100||o.y>canvas.height+100||o.y<-100)o.active=false;
+    if(o.active&&player.invincible===0){
+      const nx=Math.max(o.x-o.sz/2,Math.min(player.x,o.x+o.sz/2)),ny=Math.max(o.y-o.sz/2,Math.min(player.y,o.y+o.sz/2));
+      if((player.x-nx)**2+(player.y-ny)**2<16**2){hit();o.active=false;burst(o.x,o.y,o.color,15);}
+    }
+  });
+  collectibles.forEach(c=>{c.x+=c.vx;c.angle+=.05;if(c.x<-40)c.active=false;if((player.x-c.x)**2+(player.y-c.y)**2<28**2){c.active=false;if(c.type==='life'&&state.lives<3){state.lives++;burst(c.x,c.y,'#00ff88',10);}else{state.score+=50;burst(c.x,c.y,'#ffd700',8);}}});
+  particles.forEach(p=>{p.x+=p.vx;p.y+=p.vy;p.vy+=.1;p.life-=.03;});
+  obstacles=obstacles.filter(o=>o.active);collectibles=collectibles.filter(c=>c.active);particles=particles.filter(p=>p.life>0);
+  document.getElementById('scoreDisplay').textContent='Score: '+state.score;
+  document.getElementById('livesDisplay').textContent='❤️'.repeat(state.lives);
+  document.getElementById('levelDisplay').textContent='Level '+state.level;
+}
+function hit(){state.lives--;player.invincible=90;burst(player.x,player.y,'#ff4444',20);if(state.lives<=0)gameOver();}
+function draw(){
+  ctx.fillStyle='#0a0a0f';ctx.fillRect(0,0,canvas.width,canvas.height);
+  ctx.strokeStyle='rgba(0,245,255,0.05)';ctx.lineWidth=1;
+  for(let x=0;x<canvas.width;x+=60){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,canvas.height);ctx.stroke();}
+  for(let y=0;y<canvas.height;y+=60){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(canvas.width,y);ctx.stroke();}
+  player.trail.forEach((t,i)=>{ctx.save();ctx.globalAlpha=i/player.trail.length*.4;ctx.fillStyle='#00f5ff';ctx.beginPath();ctx.arc(t.x,t.y,i/player.trail.length*10,0,Math.PI*2);ctx.fill();ctx.restore();});
+  if(player.invincible===0||Math.floor(player.invincible/6)%2===0){
+    ctx.save();ctx.shadowColor='#00f5ff';ctx.shadowBlur=20;ctx.fillStyle='#00f5ff';ctx.beginPath();ctx.arc(player.x,player.y,18,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(player.x,player.y,8,0,Math.PI*2);ctx.fill();ctx.restore();
+  }
+  obstacles.forEach(o=>{ctx.save();ctx.shadowColor=o.color;ctx.shadowBlur=15;ctx.fillStyle=o.color;ctx.fillRect(o.x-o.sz/2,o.y-o.sz/2,o.sz,o.sz);ctx.restore();});
+  collectibles.forEach(c=>{ctx.save();ctx.translate(c.x,c.y);ctx.rotate(c.angle);ctx.font='24px Arial';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(c.type==='life'?'❤️':'⭐',0,0);ctx.restore();});
+  particles.forEach(p=>{ctx.save();ctx.globalAlpha=p.life;ctx.fillStyle=p.col;ctx.shadowColor=p.col;ctx.shadowBlur=8;ctx.beginPath();ctx.arc(p.x,p.y,p.sz*p.life,0,Math.PI*2);ctx.fill();ctx.restore();});
+}
+function loop(){update();draw();requestAnimationFrame(loop);}
+function showScreen(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active');}
+function showStart(){showScreen('startScreen');loadTopScores();}
+function startGame(){
+  const name=document.getElementById('playerName').value.trim()||'Spieler';
+  localStorage.setItem('playerName',name);
+  state={score:0,lives:3,level:1,running:true,frame:0};
+  obstacles=[];particles=[];collectibles=[];
+  showScreen('gameScreen');
+  resize();
+  player.x=canvas.width/2;player.y=canvas.height/2;player.trail=[];player.invincible=0;
+}
+function gameOver(){
+  state.running=false;saveScore(state.score);
+  document.getElementById('finalScore').textContent=state.score;
+  const scores=getScores(),rank=scores.findIndex(s=>s.score===state.score)+1;
+  document.getElementById('rankMessage').textContent=rank===1?'🥇 Neuer Rekord!':rank<=3?'🏆 Platz '+rank+' in der Bestenliste!':'Du bist auf Platz '+rank+'!';
+  showScreen('gameOverScreen');
+}
+function showLeaderboard(){
+  const scores=getScores(),m=['🥇','🥈','🥉'],cl=['gold','silver','bronze'];
+  document.getElementById('leaderboardList').innerHTML=scores.length===0?'<p style="color:#555;margin-top:20px">Noch keine Scores!</p>':scores.map((s,i)=>'<div class="lb-entry '+(cl[i]||'')+'"><span class="lb-rank">'+(m[i]||(i+1)+'.')+'</span><span class="lb-name">'+s.name+'</span><span class="lb-score">'+s.score+'</span></div>').join('');
+  showScreen('leaderboardScreen');
+}
+function loadTopScores(){
+  const scores=getScores().slice(0,3);
+  document.getElementById('topScores').innerHTML=scores.map((s,i)=>'<div class="lb-entry '+([ 'gold','silver','bronze'][i]||'')+'"><span class="lb-rank">'+['🥇','🥈','🥉'][i]+'</span><span class="lb-name">'+s.name+'</span><span class="lb-score">'+s.score+'</span></div>').join('');
+}
+function getScores(){return JSON.parse(localStorage.getItem('hyperArcadeScores')||'[]');}
+function saveScore(score){const name=localStorage.getItem('playerName')||'Spieler';const scores=getScores();scores.push({name,score});scores.sort((a,b)=>b.score-a.score);localStorage.setItem('hyperArcadeScores',JSON.stringify(scores.slice(0,20)));}
+function shareScore(){const text='🎮 '+( localStorage.getItem('playerName')||'Spieler')+' hat '+state.score+' Punkte in Hyper Arcade! Kannst du das toppen? 👾';if(navigator.share)navigator.share({title:'Hyper Arcade',text});else{navigator.clipboard.writeText(text);alert('Score kopiert!');}}
+const sn=localStorage.getItem('playerName');if(sn)document.getElementById('playerName').value=sn;
+loadTopScores();loop();
+</script>
 </body>
 </html>
