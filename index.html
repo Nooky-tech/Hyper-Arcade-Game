@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <title>Hyper Arcade</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="startScreen" class="screen active">
+    <div class="logo">HYPER ARCADE</div>
+    <button class="btn-primary" onclick="startGame()">SPIELEN</button>
+    <button class="btn-secondary" onclick="showLeaderboard()">Bestenliste</button>
+    <div class="name-input"><input type="text" id="playerName" placeholder="Dein Name..." maxlength="12"></div>
+  </div>
+  <div id="gameScreen" class="screen">
+    <div class="hud"><span id="scoreDisplay">Score: 0</span><span id="livesDisplay">3 Leben</span><span id="levelDisplay">Level 1</span></div>
+    <canvas id="gameCanvas"></canvas>
+  </div>
+  <div id="gameOverScreen" class="screen">
+    <div class="logo">GAME OVER</div>
+    <p class="final-score">Score: <span id="finalScore">0</span></p>
+    <button class="btn-primary" onclick="startGame()">NOCHMAL</button>
+    <button class="btn-secondary" onclick="shareScore()">Teilen</button>
+    <button class="btn-secondary" onclick="showStart()">Zurueck</button>
+  </div>
+  <div id="leaderboardScreen" class="screen">
+    <div class="logo">BESTENLISTE</div>
+    <div id="leaderboardList"></div>
+    <button class="btn-secondary" onclick="showStart()">Zurueck</button>
+  </div>
+  <script src="game.js"></script>
+</body>
+</html>
