@@ -7,7 +7,6 @@ function resizeCanvas() {
   canvas.width = window.innerWidth;
   canvas.height = window.innerHeight - 48;
 }
-resizeCanvas();
 window.addEventListener('resize', resizeCanvas);
 
 let state = { score: 0, lives: 3, level: 1, running: false, frame: 0 };
@@ -164,10 +163,14 @@ function startGame() {
   const name = document.getElementById('playerName').value.trim() || 'Spieler';
   localStorage.setItem('playerName', name);
   state = { score: 0, lives: 3, level: 1, running: true, frame: 0 };
-  player.x = canvas.width / 2; player.y = canvas.height / 2;
-  player.trail = []; player.invincible = 0;
   obstacles = []; particles = []; collectibles = [];
   showScreen('gameScreen');
+  // Resize AFTER screen is visible so canvas gets correct dimensions
+  resizeCanvas();
+  player.x = canvas.width / 2;
+  player.y = canvas.height / 2;
+  player.trail = [];
+  player.invincible = 0;
 }
 
 function gameOver() {
@@ -219,4 +222,5 @@ function shareScore() {
 const savedName = localStorage.getItem('playerName');
 if (savedName) document.getElementById('playerName').value = savedName;
 loadTopScores();
+resizeCanvas();
 loop();
